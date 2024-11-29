@@ -1,0 +1,100 @@
+name: Blue/Green Deployment with Tests
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      KUBE_NAMESPACE: default
+      DEPLOYMENT_NAME: my-service
+      SERVICE_NAME: my-service
+      BLUE_LABEL: blue
+      GREEN_LABEL: green
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Install dependencies and run tests
+      run: |
+        cd app
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pytest test_hello.py
+
+    - name: Log in to container registry
+      run: |
+        echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${{ secrets.REGISTRY_URL }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+
+    - name: Build and push Docker image
+      run: |
+        cd app
+        IMAGE_TAG=${{ github.sha }}
+        docker build -t ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG .
+        docker push ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Configure kubeconfig
+      run: |
+        echo "${{ secrets.KUBECONFIG }}" > kubeconfig
+        export KUBECONFIG=$(pwd)/kubeconfig
+
+    - name: Determine active environment
+      id: active-env
+      run: |
+        CURRENT_COLOR=$(kubectl get service ${{ env.SERVICE_NAME }} -o jsonpath='{.spec.selector.color}')
+        echo "current_color=${CURRENT_COLOR}" >> $GITHUB_ENV
+        echo "new_color=$( [ $CURRENT_COLOR = ${{ env.BLUE_LABEL }} ] && echo ${{ env.GREEN_LABEL }} || echo ${{ env.BLUE_LABEL }})" >> $GITHUB_ENV
+
+    - name: Apply deployment for new environment
+      run: |
+        IMAGE_TAG=${{ github.sha }}
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${{ env.DEPLOYMENT_NAME }}-${{ env.new_color }}
+          labels:
+            app: ${{ env.DEPLOYMENT_NAME }}
+            color: ${{ env.new_color }}
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: ${{ env.DEPLOYMENT_NAME }}
+              color: ${{ env.new_color }}
+          template:
+            metadata:
+              labels:
+                app: ${{ env.DEPLOYMENT_NAME }}
+                color: ${{ env.new_color }}
+            spec:
+              containers:
+              - name: ${{ env.DEPLOYMENT_NAME }}
+                image: ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG
+                ports:
+                - containerPort: 80
+        EOF
+
+    - name: Update service to point to new deployment
+      run: |
+        kubectl patch service ${{ env.SERVICE_NAME }} -p \
+          '{"spec":{"selector":{"app":"'${{ env.DEPLOYMENT_NAME }}'","color":"'${{ env.new_color }}'"}}}'
+
+    - name: Cleanup old deployment
+      run: |
+        kubectl delete deployment ${{ env.DEPLOYMENT_NAME }}-${{ env.current_color }}
