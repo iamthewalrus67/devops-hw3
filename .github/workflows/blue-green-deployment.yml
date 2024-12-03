@@ -45,15 +45,19 @@ jobs:
         docker build -t ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG .
         docker push ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG
 
+    - name: Log in to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
     - name: Set up kubectl
       uses: azure/setup-kubectl@v3
       with:
         version: 'latest'
 
-    - name: Configure kubeconfig
+    - name: Configure kubectl for AKS
       run: |
-        echo "${{ secrets.KUBECONFIG }}" > kubeconfig
-        export KUBECONFIG=$(pwd)/kubeconfig
+        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
 
     - name: Determine active environment
       id: active-env
