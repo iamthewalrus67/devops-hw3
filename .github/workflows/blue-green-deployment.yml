@@ -44,6 +44,7 @@ jobs:
         IMAGE_TAG=${{ github.sha }}
         docker build -t ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG .
         docker push ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG
+        echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
 
     - name: Log in to Azure
       uses: azure/login@v1
@@ -56,51 +57,36 @@ jobs:
         version: 'latest'
 
     - name: Configure kubectl for AKS
-      run: |
-        az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+      run: az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
 
     - name: Determine active environment
-      id: active-env
+      id: current-color
       run: |
-        CURRENT_COLOR=$(kubectl get service ${{ env.SERVICE_NAME }} -o jsonpath='{.spec.selector.color}')
-        echo "current_color=${CURRENT_COLOR}" >> $GITHUB_ENV
-        echo "new_color=$( [ $CURRENT_COLOR = ${{ env.BLUE_LABEL }} ] && echo ${{ env.GREEN_LABEL }} || echo ${{ env.BLUE_LABEL }})" >> $GITHUB_ENV
+          CURRENT_VERSION=$(kubectl get service my-app -o jsonpath='{.spec.selector.version}')
+          echo "CURRENT_VERSION=${CURRENT_VERSION}" >> $GITHUB_ENV
 
-    - name: Apply deployment for new environment
+    - name: Deploy new version
       run: |
-        IMAGE_TAG=${{ github.sha }}
-        kubectl apply -f - <<EOF
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: ${{ env.DEPLOYMENT_NAME }}-${{ env.new_color }}
-          labels:
-            app: ${{ env.DEPLOYMENT_NAME }}
-            color: ${{ env.new_color }}
-        spec:
-          replicas: 2
-          selector:
-            matchLabels:
-              app: ${{ env.DEPLOYMENT_NAME }}
-              color: ${{ env.new_color }}
-          template:
-            metadata:
-              labels:
-                app: ${{ env.DEPLOYMENT_NAME }}
-                color: ${{ env.new_color }}
-            spec:
-              containers:
-              - name: ${{ env.DEPLOYMENT_NAME }}
-                image: ${{ secrets.REGISTRY_URL }}/${{ secrets.REGISTRY_REPO }}:$IMAGE_TAG
-                ports:
-                - containerPort: 80
-        EOF
+          if [[ "$CURRENT_VERSION" == "v1.0.0" ]]; then
+            sed "s|iamthewalrus67/my-service:latest|${{ secrets.REGISTRY_USERNAME }}/my-service:${{ env.IMAGE_TAG }}|" k8s/app-v2.yml | kubectl apply -f -
+            echo "NEW_VERSION=v2.0.0" >> $GITHUB_ENV
+          else
+            sed "s|iamthewalrus67/my-service:latest|${{ secrets.REGISTRY_USERNAME }}/my-service:${{ env.IMAGE_TAG }}|" k8s/app-v1.yml | kubectl apply -f -
+            echo "NEW_VERSION=v1.0.0" >> $GITHUB_ENV
 
-    - name: Update service to point to new deployment
+    - name: Switch service to new version
       run: |
-        kubectl patch service ${{ env.SERVICE_NAME }} -p \
-          '{"spec":{"selector":{"app":"'${{ env.DEPLOYMENT_NAME }}'","color":"'${{ env.new_color }}'"}}}'
+          kubectl patch service my-app -p '{"spec":{"selector":{"app":"my-app","version":"'"${{ env.NEW_VERSION }}"'"}}}'
 
+      # Step 8: Verify new deployment
+    - name: Verify new deployment
+      run: kubectl rollout status deployment my-app-${{ env.NEW_VERSION }}
+
+    # Optional Step 9: Cleanup old deployment (blue)
     - name: Cleanup old deployment
+      if: always()
       run: |
-        kubectl delete deployment ${{ env.DEPLOYMENT_NAME }}-${{ env.current_color }}
+        if [[ "$CURRENT_VERSION" == "v1.0.0" ]]; then
+          kubectl delete deployment my-app-v1 || true
+        else
+          kubectl delete deployment my-app-v2 || true
