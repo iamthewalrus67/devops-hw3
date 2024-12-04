@@ -79,11 +79,9 @@ jobs:
       run: |
           kubectl patch service my-app -p '{"spec":{"selector":{"app":"my-app","version":"'"${{ env.NEW_VERSION }}"'"}}}'
 
-      # Step 8: Verify new deployment
     - name: Verify new deployment
       run: kubectl rollout status deployment my-app-${{ env.NEW_VERSION }}
 
-    # Optional Step 9: Cleanup old deployment (blue)
     - name: Cleanup old deployment
       if: always()
       run: |
