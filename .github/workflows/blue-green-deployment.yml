@@ -73,10 +73,10 @@ jobs:
       run: |
           if [[ "$CURRENT_VERSION" == "v1.0.0" ]]; then
             sed "s|iamthewalrus67/my-service:latest|${{ secrets.REGISTRY_USERNAME }}/my-service:${{ env.IMAGE_TAG }}|" k8s/app-v2.yml | kubectl apply -f -
-            echo "NEW_VERSION=v2.0.0" >> $GITHUB_ENV
+            echo "NEW_VERSION=v2" >> $GITHUB_ENV
           else
             sed "s|iamthewalrus67/my-service:latest|${{ secrets.REGISTRY_USERNAME }}/my-service:${{ env.IMAGE_TAG }}|" k8s/app-v1.yml | kubectl apply -f -
-            echo "NEW_VERSION=v1.0.0" >> $GITHUB_ENV
+            echo "NEW_VERSION=v1" >> $GITHUB_ENV
           fi
 
     - name: Switch service to new version
