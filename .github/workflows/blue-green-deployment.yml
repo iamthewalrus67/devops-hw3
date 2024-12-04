@@ -12,10 +12,6 @@ jobs:
 
     env:
       KUBE_NAMESPACE: default
-      DEPLOYMENT_NAME: my-service
-      SERVICE_NAME: my-service
-      BLUE_LABEL: blue
-      GREEN_LABEL: green
 
     steps:
     - name: Checkout code
