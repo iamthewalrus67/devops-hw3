@@ -59,6 +59,10 @@ jobs:
     - name: Configure kubectl for AKS
       run: az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
 
+    - name: Ensure service exists
+      run: |
+        kubectl get service my-app || kubectl apply -f k8s/app-v1.yml
+    
     - name: Determine active environment
       id: current-color
       run: |
