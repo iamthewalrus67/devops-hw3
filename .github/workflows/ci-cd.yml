@@ -1,0 +1,45 @@
+name: CI/CD using ArgoCD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup Kustomize
+      uses: imranismail/setup-kustomize@v1
+      with:
+        kustomize-version: "3.6.1"
+
+    - name: Update Kubernetes resources with new image tag
+      run: |
+        cd k8s
+        kustomize edit set image my-service=${{ secrets.REGISTRY_USERNAME }}/my-service:${{ github.sha }}
+        cat kustomization.yaml
+
+    - name: Commit updated Kustomize
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -am "Update Kustomize files with new image tag"
+        git push origin main
+
+    - name: Install ArgoCD
+      run: |
+        curl -sSL https://github.com/argoproj/argo-cd/releases/download/v2.9.0/argocd-linux-amd64 -o /usr/local/bin/argocd
+        chmod +x /usr/local/bin/argocd
+
+    - name: Login to ArgoCD
+      run: |
+        argocd login ${{ secrets.AGROCD_EXT_IP }} --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+
+    - name: Sync and deploy the app using ArgoCD
+      run: |
+        argocd app sync my-service --insecure --force
