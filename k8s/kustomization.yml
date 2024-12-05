@@ -7,5 +7,5 @@ resources:
 namespace: my-service
 images:
 - name: my-service
-  newName: /my-service
-  newTag: 5e0c494bb4de9cfbe88e737d684d2d0253a2a59e
+  newName: iamthewalrus67/my-service
+  newTag: 129d90dee1079af915225362c58fb1700f1b9682
