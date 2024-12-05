@@ -44,4 +44,4 @@ jobs:
 
     - name: Sync and deploy the app using ArgoCD
       run: |
-        argocd app sync my-service --insecure
+        argocd app sync my-service --insecure --force
