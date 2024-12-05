@@ -38,9 +38,9 @@ jobs:
 
     - name: Login to ArgoCD
       env:
-        ARGOCD_PASS: ${{ secrets.ARGOCD_PASSWORD }}
+        ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
       run: |
-        argocd login 74.248.77.204 --username admin --password $ARGOCD_PASS --insecure
+        argocd login 74.248.77.204 --username admin --password $ARGOCD_PASSWORD --insecure
 
     - name: Sync and deploy the app using ArgoCD
       run: |
