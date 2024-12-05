@@ -12,10 +12,6 @@ jobs:
 
     env:
       KUBE_NAMESPACE: default
-      DEPLOYMENT_NAME: my-service
-      SERVICE_NAME: my-service
-      BLUE_LABEL: blue
-      GREEN_LABEL: green
 
     steps:
     - name: Checkout code
@@ -59,6 +55,10 @@ jobs:
     - name: Configure kubectl for AKS
       run: az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
 
+    - name: Ensure service exists
+      run: |
+        kubectl get service my-app || kubectl apply -f k8s/app-v1.yml
+    
     - name: Determine active environment
       id: current-color
       run: |
@@ -69,20 +69,19 @@ jobs:
       run: |
           if [[ "$CURRENT_VERSION" == "v1.0.0" ]]; then
             sed "s|iamthewalrus67/my-service:latest|${{ secrets.REGISTRY_USERNAME }}/my-service:${{ env.IMAGE_TAG }}|" k8s/app-v2.yml | kubectl apply -f -
-            echo "NEW_VERSION=v2.0.0" >> $GITHUB_ENV
+            echo "NEW_VERSION=v2" >> $GITHUB_ENV
           else
             sed "s|iamthewalrus67/my-service:latest|${{ secrets.REGISTRY_USERNAME }}/my-service:${{ env.IMAGE_TAG }}|" k8s/app-v1.yml | kubectl apply -f -
-            echo "NEW_VERSION=v1.0.0" >> $GITHUB_ENV
+            echo "NEW_VERSION=v1" >> $GITHUB_ENV
+          fi
 
     - name: Switch service to new version
       run: |
           kubectl patch service my-app -p '{"spec":{"selector":{"app":"my-app","version":"'"${{ env.NEW_VERSION }}"'"}}}'
 
-      # Step 8: Verify new deployment
     - name: Verify new deployment
       run: kubectl rollout status deployment my-app-${{ env.NEW_VERSION }}
 
-    # Optional Step 9: Cleanup old deployment (blue)
     - name: Cleanup old deployment
       if: always()
       run: |
@@ -90,3 +89,4 @@ jobs:
           kubectl delete deployment my-app-v1 || true
         else
           kubectl delete deployment my-app-v2 || true
+        fi
