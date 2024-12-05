@@ -8,4 +8,4 @@ namespace: my-service
 images:
 - name: my-service
   newName: /my-service
-  newTag: 11b6f4ceaa19611fe0dd62bffcfac0d08a6d75f5
+  newTag: 022ed984f9c946d5c3adead67403467fa648a0b4
