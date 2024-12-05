@@ -23,7 +23,6 @@ jobs:
       run: |
         cd k8s
         kustomize edit set image my-service=${{ secrets.REGISTRY_USERNAME }}/my-service:${{ github.sha }}
-        cat kustomization.yml
 
     - name: Commit updated Kustomize
       run: |
