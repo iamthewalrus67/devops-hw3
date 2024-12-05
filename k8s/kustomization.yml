@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- deployment.yaml
+- service.yaml
+- ingress.yaml
+namespace: my-service
+images:
+- name: my-service
+  newName: iamthewalrus67/my-service
+  newTag: c231f4bf738535df912638b2f42b820fe250d0a6
