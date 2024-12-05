@@ -38,10 +38,9 @@ jobs:
 
     - name: Login to ArgoCD
       env:
-        AGROCD_IP: ${{ secrets.AGROCD_EXT_IP }}
         ARGOCD_PASS: ${{ secrets.ARGOCD_PASSWORD }}
       run: |
-        argocd login $AGROCD_IP --username admin --password $ARGOCD_PASS --insecure
+        argocd login 74.248.77.204 --username admin --password $ARGOCD_PASS --insecure
 
     - name: Sync and deploy the app using ArgoCD
       run: |
