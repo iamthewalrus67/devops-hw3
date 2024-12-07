@@ -8,4 +8,4 @@ namespace: my-service
 images:
 - name: my-service
   newName: iamthewalrus67/my-service
-  newTag: 388704602ad498ddf700b1aa29401149fd057f6c
+  newTag: 54f6ad5567e888b7f85aea73ede4374a061e450c
